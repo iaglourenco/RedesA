@@ -19,8 +19,8 @@ int main(int argc, char *argv[]){
 char answer[2000];
 
    /* 
-    * O primeiro argumento (argv[1]) é o endereço IP do servidor.
-    * O segundo argumento (argv[2]) é a porta do servidor.
+    * O primeiro argumento (argv[1]) ï¿½ o endereï¿½o IP do servidor.
+    * O segundo argumento (argv[2]) ï¿½ a porta do servidor.
     */
    if(argc != 3)
    {
@@ -38,25 +38,16 @@ char answer[2000];
        exit(1);
    }
 
-   /* Define o endereço IP e a porta do servidor */
-   server.sin_family      = AF_INET;            /* Tipo do endereço         */
+   /* Define o endereï¿½o IP e a porta do servidor */
+   server.sin_family      = AF_INET;            /* Tipo do endereï¿½o         */
    server.sin_port        = port;               /* Porta do servidor        */
-   server.sin_addr.s_addr = inet_addr(argv[1]); /* Endereço IP do servidor  */
+   server.sin_addr.s_addr = inet_addr(argv[1]); /* Endereï¿½o IP do servidor  */
 	
-	
-if (bind(s, (struct sockaddr *)&server, sizeof(server)) < 0)
-   {
-       perror("bind()");
-       exit(1);
-   }
-
 do{
 	printf(">");
 	__fpurge(stdin);
-	scanf("%s",comando);
-	
+	fgets(comando,200,stdin);
    strcpy(buf,comando);
-
    /* Envia a mensagem no buffer para o servidor */
    if (sendto(s, buf, (strlen(buf)+1), 0, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
@@ -64,18 +55,23 @@ do{
        exit(2);
    }
 
-   if(recvfrom(s, answer, sizeof(answer), 0, NULL,0) <0)
-   {
-       perror("recvfrom()");
-       exit(1);
-   }
-	  printf("\n %s",answer);
+   do{
+      if(recvfrom(s, answer, sizeof(answer), 0, NULL,0) <0)
+      {
+          perror("recvfrom()");
+         exit(1);
+      }
+      if(strcmp(answer,"EOM") != 0){
+	
+         printf("\n%s",answer);
+      }
 
+   }while(strcmp(answer,"EOM") != 0);
 
+}while(strcmp(comando,"exit\n") != 0 );
 
-	}while(strcmp(comando,"exit") != 0 );
+/* Fecha o socket */
+close(s);
+return 0;
 
-   /* Fecha o socket */
-   close(s);
-	return 0;
 }

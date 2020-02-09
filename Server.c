@@ -31,17 +31,17 @@ int main(int argc,char *argv[])
    }
 
    /*
-    * Define a qual endereço IP e porta o servidor estará ligado.
+    * Define a qual endereï¿½o IP e porta o servidor estarï¿½ ligado.
     * Porta = 0 -> faz com que seja utilizada uma porta qualquer livre.
     * IP = INADDDR_ANY -> faz com que o servidor se ligue em todos
-    * os endereços IP
+    * os endereï¿½os IP
     */
-   server.sin_family      = AF_INET;   /* Tipo do endereço             */
-   server.sin_port        = htons(atoi(argv[1]));         /* Escolhe uma porta disponível */
-   server.sin_addr.s_addr = INADDR_ANY;/* Endereço IP do servidor      */
+   server.sin_family      = AF_INET;   /* Tipo do endereï¿½o             */
+   server.sin_port        = htons(atoi(argv[1]));         /* Escolhe uma porta disponï¿½vel */
+   server.sin_addr.s_addr = INADDR_ANY;/* Endereï¿½o IP do servidor      */
 
    /*
-    * Liga o servidor à porta definida anteriormente.
+    * Liga o servidor ï¿½ porta definida anteriormente.
     */
    if (bind(s, (struct sockaddr *)&server, sizeof(server)) < 0)
    {
@@ -64,7 +64,7 @@ int main(int argc,char *argv[])
 do{
    /*
     * Recebe uma mensagem do cliente.
-    * O endereço do cliente será armazenado em "client".
+    * O endereï¿½o do cliente sera armazenado em "client".
     */
    client_address_size = sizeof(client);
    if(recvfrom(s, buf, sizeof(buf), 0, (struct sockaddr *) &client,&client_address_size) <0)
@@ -72,24 +72,35 @@ do{
        perror("recvfrom()");
        exit(1);
    }
-
+   
+    
    /*
-    * Imprime a mensagem recebida, o endereço IP do cliente
+    * Imprime a mensagem recebida, o endereï¿½o IP do cliente
     * e a porta do cliente 
     */
-   printf("Recebida o comando '%s' do endereço IP %s da porta %d\n",buf,inet_ntoa(client.sin_addr),ntohs(client.sin_port));
+   printf("\nRecebida o comando '%s' do endereco IP %s da porta %d\n\n",buf,inet_ntoa(client.sin_addr),ntohs(client.sin_port));
 
-	strcpy(answer,buf);
+	FILE *terminal_comando = popen(buf,"r");
+    while(fgets(answer,sizeof(answer),terminal_comando) != NULL){
+        printf("%s",answer);
+        if (sendto(s, answer, (strlen(answer)+1), 0, (struct sockaddr *)&client, sizeof(client)) < 0)
+        {
+           perror("sendto()");
+           exit(2);
+        }
+    }
+   pclose(terminal_comando);
+   strcpy(answer,"EOM");
    if (sendto(s, answer, (strlen(answer)+1), 0, (struct sockaddr *)&client, sizeof(client)) < 0)
-   {
-       perror("sendto()");
-       exit(2);
-   }
+        {
+           perror("sendto()");
+           exit(2);
+        }
 
 }while(strcmp(buf,"exit") != 0);
    /*
     * Fecha o socket.
     */
    close(s);
-return 0;
+   return 0;
 }
