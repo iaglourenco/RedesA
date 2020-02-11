@@ -76,19 +76,37 @@ int main(int argc, char *argv[])
     * Imprime a mensagem recebida, o endere�o IP do cliente
     * e a porta do cliente 
     */
+	buf[strlen(buf)-1] = '\0';
         printf("================================================== \n");
         printf("Recebida o comando '%s' do endereco IP %s da porta %d\n\n", buf, inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 
         FILE *terminal_comando = popen(buf, "r");
-        while (fgets(answer, sizeof(answer), terminal_comando) != NULL)
-        {
-            printf("%s", answer);
-            if (sendto(s, answer, (strlen(answer) + 1), 0, (struct sockaddr *)&client, sizeof(client)) < 0)
+	fgets(answer, sizeof(answer), terminal_comando); 
+	if(answer == NULL){
+	 
+	   
+            if (sendto(s, "Erro comando não encontrado\n", strlen("Erro comando não encontrado\n"), 0, (struct sockaddr *)&client, sizeof(client)) < 0)
             {
                 perror("sendto()");
                 exit(2);
             }
-        }
+	}
+	
+	else{
+		while (1)
+        	{
+            		if (sendto(s, answer, (strlen(answer) + 1), 0, (struct sockaddr *)&client, sizeof(client)) < 0)
+            		{
+                		perror("sendto()");
+                		exit(2);
+            		}
+			if(fgets(answer, sizeof(answer), terminal_comando) == NULL) break;        	
+		}
+
+	}        
+
+
+	
         pclose(terminal_comando);
         
         strcpy(answer, "EOM");
