@@ -72,15 +72,17 @@ do{
     printf("2 - Ler mensagens\n");
     printf("3 - Apagar mensagens\n");
     printf("4 - Sair\n>");
-
+    __fpurge(stdin);
     scanf("%1d",&option);
     system("clear");
     switch(option){
         case 1:
             printf("Usuario: ");
-            scanf("%19s",usuario);
+            __fpurge(stdin);
+            fgets(usuario,19,stdin);
             printf("Mensagem: ");
-            scanf("%79s",msg);
+            __fpurge(stdin);
+            fgets(msg,79,stdin);
             
             if(send(s,"1",sizeof("1"),0) < 0){
                 perror("Send()");
@@ -135,6 +137,33 @@ do{
                 perror("Send()");
                 exit(5);
             }
+            printf("Usuario: ");
+            __fpurge(stdin);
+            fgets(usuario,19,stdin);
+            if(send(s,usuario,sizeof(usuario),0) < 0){
+                perror("Send()");
+                exit(5);
+            }
+            if(recv(s,recvbuf,sizeof(recvbuf),0) == -1){
+                perror("Recv()");
+                exit(6);
+            }
+            if(strcmp(recvbuf,"ERR2")!=0){
+                printf("Mensagens apagadas = %d",atoi(recvbuf));
+                for(i=0;i<atoi(recvbuf);i++){
+                    if (recv(s, usuario, sizeof(usuario), 0) == -1){
+                        perror("Recv()");
+                        exit(6);
+                    }
+
+                    if (recv(s, msg, sizeof(msg), 0) == -1){
+                        perror("Recv()");
+                        exit(6);
+                    }
+                    printf("Usuario: %s Mensagem: %s\n", usuario,msg);
+                }
+            }
+            
             break;
         case 4:
              /* Fecha o socket */

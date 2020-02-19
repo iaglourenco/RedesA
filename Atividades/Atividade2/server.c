@@ -111,8 +111,9 @@ do{
                         if (recv(ns, msg, sizeof(msg), 0) == -1){
                             perror("Recv()");
                             exit(6);
-                        }
-
+                        };
+                        usuario[strlen(usuario)-1]='\0';
+                        msg[strlen(msg)-1]='\0';
                         memcpy(banco[countMsg].usuario,usuario,sizeof(usuario));
                         memcpy(banco[countMsg].msg,msg,sizeof(msg));
                         countMsg++;
