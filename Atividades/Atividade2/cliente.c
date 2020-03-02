@@ -149,7 +149,7 @@ do{
                 exit(6);
             }
             if(strcmp(recvbuf,"ERR2")!=0){
-                printf("Mensagens apagadas = %d",atoi(recvbuf));
+                printf("Mensagens apagadas = %d\n",atoi(recvbuf));
                 for(i=0;i<atoi(recvbuf);i++){
                     if (recv(s, usuario, sizeof(usuario), 0) == -1){
                         perror("Recv()");

@@ -11,6 +11,7 @@
 struct database{
     char usuario[19];
     char msg[79];
+    int flagVazio; //1 sim ; -99 nao
 };
 
 
@@ -28,9 +29,8 @@ int main(int argc, char **argv)
     int ns;                    /* Socket conectado ao cliente        */
     int namelen;
     char operacao[2];
-    struct database banco[10];
-    int countMsg=0,i;               
-
+    struct database banco[MAX_MSG],erased[MAX_MSG];
+    int countMsg=0,i,countErase=0;
     /*
      * O primeiro argumento (argv[1]) e a porta
      * onde o servidor aguardara por conexoes
@@ -112,13 +112,20 @@ do{
                             perror("Recv()");
                             exit(6);
                         };
-                        usuario[strlen(usuario)-1]='\0';
-                        msg[strlen(msg)-1]='\0';
-                        memcpy(banco[countMsg].usuario,usuario,sizeof(usuario));
-                        memcpy(banco[countMsg].msg,msg,sizeof(msg));
-                        countMsg++;
+                        for(i=0;i<MAX_MSG;i++){
 
-                        printf("Usuario: %s Mensagem: %s\n", usuario,msg);
+                            if(banco[i].flagVazio != -99){
+                                usuario[strlen(usuario)-1]='\0';
+                                msg[strlen(msg)-1]='\0';
+                                memcpy(banco[i].usuario,usuario,sizeof(usuario));
+                                memcpy(banco[i].msg,msg,sizeof(msg));
+                                banco[i].flagVazio = -99;
+                                countMsg++;
+                                //printf("CADASTRADO-> Usuario: %s Mensagem: %s\n", usuario,msg);
+                                break;
+                            }
+                        }
+                        
                     }
             }
             else if(strcmp(operacao,"2")==0){
@@ -128,20 +135,59 @@ do{
                     exit(5);
                 }
     
-                for(i=0;i<countMsg;i++){
-                    if(send(ns,banco[i].usuario,sizeof(usuario),0) < 0){
-                        perror("Send()");
-                        exit(5);
+                for(i=0;i<MAX_MSG;i++){
+                    if(banco[i].flagVazio == -99){
+                        if(send(ns,banco[i].usuario,sizeof(usuario),0) < 0){
+                            perror("Send()");
+                            exit(5);
+                        }
+                        if(send(ns,banco[i].msg,sizeof(msg),0) < 0){
+                            perror("Send()");
+                            exit(5);
+                        }  
                     }
-                    if(send(ns,banco[i].msg,sizeof(msg),0) < 0){
-                        perror("Send()");
-                        exit(5);
-                    }  
                 }
                 
             } 
             else if(strcmp(operacao,"3")==0){
+
+                if(recv(ns,usuario,sizeof(usuario),0) == -1){
+                    perror("Recv()");
+                    exit(6);
+                }
+                usuario[strlen(usuario)-1]='\0';
+                                
+
+                countErase=0;
+                for(i=0;i<MAX_MSG;i++){
+                    if(strcmp(usuario,banco[i].usuario) == 0){
+                        banco[i].flagVazio=1;
+                        memcpy(erased[countErase].msg,banco[i].msg,sizeof(banco[i].msg));
+                        memcpy(erased[countErase].usuario,banco[i].usuario,sizeof(banco[i].usuario));
+                        countErase++;
+                        countMsg--;
+                        //printf("APAGADO -> Usuario: %s Msg: %s\n",banco[i].usuario,banco[i].msg);
+                    }
+                }
+                sprintf(sendbuf,"%d",countErase);
+                if(send(ns,sendbuf,sizeof(sendbuf),0) < 0){
+                    perror("Send()");
+                    exit(5);
+                }
+                for(i=0;i<countErase;i++){
+                     
+                     if(send(ns,erased[i].usuario,sizeof(usuario),0) < 0){
+                        perror("Send()");
+                        exit(5);
+                    }
+
+                    if(send(ns,erased[i].msg,sizeof(msg),0) < 0){
+                        perror("Send()");
+                        exit(5);
+                    }
+                }
                 
+
             }
     
     }while(strcmp(operacao,"4") != 0);
