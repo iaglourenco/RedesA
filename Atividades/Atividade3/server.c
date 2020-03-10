@@ -16,15 +16,13 @@ typedef struct
     char usuario[19];
     char msg[79];
     int flagVazio; //1 sim ; -99 nao
-    database *prox;
 } database;
 
-int escreve(int ns, int countMsg, database *banco, database *banco_ini)
+int escreve(int ns, int countMsg, database banco[])
 {
     char usuario[19];
     char msg[79];
 
-    banco = banco_ini;
     if (countMsg == MAX_MSG)
     {
         if (send(ns, "ERR1", sizeof("ERR1"), 0) < 0)
@@ -51,33 +49,29 @@ int escreve(int ns, int countMsg, database *banco, database *banco_ini)
             exit(6);
         };
 
-        while (banco != NULL)
+        for (int i = 0; i < MAX_MSG; i++)
         {
-            if (banco->flagVazio != -99)
+            if (banco[i].flagVazio != -99)
             {
                 usuario[strlen(usuario) - 1] = '\0';
                 msg[strlen(msg) - 1] = '\0';
-                memcpy(banco->usuario, usuario, sizeof(usuario));
-                memcpy(banco->msg, msg, sizeof(msg));
-                banco->flagVazio = -99;
+                memcpy(banco[i].usuario, usuario, sizeof(usuario));
+                memcpy(banco[i].msg, msg, sizeof(msg));
+                banco[i].flagVazio = -99;
                 countMsg++;
                 break;
             }
-            banco = banco->prox;
         }
     }
 
-    banco = banco_ini;
     return countMsg;
 }
 
-void le(int ns, int countMsg, database *banco, database *banco_ini)
+void le(int ns, int countMsg, database banco[])
 {
     char sendbuf[20];
     char usuario[19];
     char msg[79];
-
-    banco = banco_ini;
 
     sprintf(sendbuf, "%d", countMsg);
     if (send(ns, sendbuf, sizeof(sendbuf), 0) < 0)
@@ -86,37 +80,31 @@ void le(int ns, int countMsg, database *banco, database *banco_ini)
         exit(5);
     }
 
-    while (banco != NULL)
+    for (int i = 0; i < MAX_MSG; i++)
     {
-        if (banco->flagVazio == -99)
+        if (banco[i].flagVazio == -99)
         {
-            if (send(ns, banco->usuario, sizeof(usuario), 0) < 0)
+            if (send(ns, banco[i].usuario, sizeof(usuario), 0) < 0)
             {
                 perror("Send()");
                 exit(5);
             }
-            if (send(ns, banco->msg, sizeof(msg), 0) < 0)
+            if (send(ns, banco[i].msg, sizeof(msg), 0) < 0)
             {
                 perror("Send()");
                 exit(5);
             }
         }
-
-        banco = banco->prox;
     }
-
-    banco = banco_ini;
 }
 
-int exclui(int ns, int countMsg, database *banco, database *banco_ini)
+int exclui(int ns, int countMsg, database banco[])
 {
     char sendbuf[20];
     char usuario[19];
     char msg[79];
     int countErase;
     database erased[MAX_MSG];
-
-    banco = banco_ini;
 
     if (recv(ns, usuario, sizeof(usuario), 0) == -1)
     {
@@ -127,18 +115,16 @@ int exclui(int ns, int countMsg, database *banco, database *banco_ini)
 
     countErase = 0;
 
-    while (banco != NULL)
+    for (int i = 0; i < MAX_MSG; i++)
     {
-        if (strcmp(usuario, banco->usuario) == 0)
+        if (strcmp(usuario, banco[i].usuario) == 0)
         {
-            banco->flagVazio = 1;
-            memcpy(erased[countErase].msg, banco->msg, sizeof(banco->msg));
-            memcpy(erased[countErase].usuario, banco->usuario, sizeof(banco->usuario));
+            banco[i].flagVazio = 1;
+            memcpy(erased[countErase].msg, banco[i].msg, sizeof(banco[i].msg));
+            memcpy(erased[countErase].usuario, banco[i].usuario, sizeof(banco[i].usuario));
             countErase++;
             countMsg--;
         }
-
-        banco = banco->prox;
     }
     sprintf(sendbuf, "%d", countErase);
     if (send(ns, sendbuf, sizeof(sendbuf), 0) < 0)
@@ -162,7 +148,6 @@ int exclui(int ns, int countMsg, database *banco, database *banco_ini)
         }
     }
 
-    banco = banco_ini;
     return countMsg;
 }
 
@@ -171,9 +156,10 @@ int main(int argc, char **argv)
     int s;  /* Socket para aceitar conexoes       */
     int ns; /* Socket conectado ao cliente        */
     int shmid;
-    database *shm;
     int namelen;
     int countMsg = 0, countErase = 0;
+
+    database *banco;
 
     struct sockaddr_in client;
     struct sockaddr_in server;
@@ -182,29 +168,18 @@ int main(int argc, char **argv)
     char operacao[2];
     pid_t pid;
 
-    shmid = shmget(shm_key, sizeof(database), 0666 | IPC_CREAT);
+    shmid = shmget(IPC_PRIVATE, sizeof(database) * 10, 0666 | IPC_CREAT);
     if (shmid < 0)
     {
         perror("Erro no shmget");
         exit(1);
     }
 
-    shm = (database *)shmat(shmid, NULL, 0);
-    if (shm < 0)
+    banco = (database *)shmat(shmid, NULL, 0);
+    if (banco < 0)
     {
         perror("Shared memory attach");
         return 1;
-    }
-
-    database *banco_ini;
-    database *banco;
-    banco = (database *)malloc(sizeof(database));
-    banco_ini = banco;
-
-    for (int i = 0; i < MAX_MSG - 1; i++)
-    {
-        banco->prox = (database *)malloc(sizeof(database));
-        banco = banco->prox;
     }
 
     if (argc != 2)
@@ -255,12 +230,9 @@ int main(int argc, char **argv)
         {
             int pid_filho = getpid();
             printf("Filho Iniciado com pid: %d. \n", pid_filho);
-            //printf("Teste shm filho: %d \n", *shm);
 
             do
             {
-                shm = banco;
-
                 if (recv(ns, operacao, sizeof(operacao), 0) == -1)
                 {
                     perror("Recv()");
@@ -268,36 +240,41 @@ int main(int argc, char **argv)
                 }
                 if (strcmp(operacao, "1") == 0)
                 {
-                    countMsg = escreve(ns, countMsg, banco, banco_ini);
+                    countMsg = escreve(ns, countMsg, banco);
                 }
                 else if (strcmp(operacao, "2") == 0)
                 {
-                    le(ns, countMsg, shm, banco_ini);
+                    le(ns, countMsg, banco);
                 }
                 else if (strcmp(operacao, "3") == 0)
                 {
-                    countMsg = exclui(ns, countMsg, banco, banco_ini);
+                    countMsg = exclui(ns, countMsg, banco);
                 }
+
+                /*printf("----------------------------Filho--------------------------------\n");
+                for (int i = 0; i < 10; i++)
+                {
+                    printf("SHM - Usuario: %s | Mensagem: %s. \n", shm[i].usuario, shm[i].msg);
+                    printf("VET - Usuario: %s | Mensagem: %s. \n", banco[i].usuario, banco[i].msg);
+                }
+
+                printf("----------------------------Filho--------------------------------\n");*/
 
             } while (strcmp(operacao, "4") != 0);
             close(ns);
         }
-        else
+        /*else
         {
-            shm = banco;
-            printf("-------------------------------------- \n");
-            while (shm != NULL)
-            {
-                printf("teste\n");
-                if (shm->flagVazio == -99)
+            printf("-----------------------------PAI-------------------------------\n");
+                for (int i = 0; i < 10; i++)
                 {
-                   printf("Mansagem: %s \n", shm->msg);
+                    printf("SHM - Usuario: %s | Mensagem: %s. \n", *shm[i].usuario, *shm[i].msg);
+                    printf("VET - Usuario: %s | Mensagem: %s. \n", banco[i].usuario, banco[i].msg);
                 }
-                shm = shm->prox;
-            }
-            printf("--------------------------------------\n");
-            shm = banco;
-        }
+
+            printf("-----------------------------PAI-------------------------------\n");
+        }*/
+        
 
     } while (1);
     close(s);
