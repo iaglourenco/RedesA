@@ -67,11 +67,21 @@ int escreve(int ns, int countMsg, database banco[])
     return countMsg;
 }
 
-void le(int ns, int countMsg, database banco[])
+void le(int ns, database banco[])
 {
     char sendbuf[20];
     char usuario[19];
     char msg[79];
+
+    int countMsg = 0;
+
+    for (int i = 0; i < MAX_MSG; i++)
+    {
+        if (banco[i].flagVazio == -99)
+        {
+                countMsg++;
+        }
+    }
 
     sprintf(sendbuf, "%d", countMsg);
     if (send(ns, sendbuf, sizeof(sendbuf), 0) < 0)
@@ -244,7 +254,7 @@ int main(int argc, char **argv)
                 }
                 else if (strcmp(operacao, "2") == 0)
                 {
-                    le(ns, countMsg, banco);
+                    le(ns, banco);
                 }
                 else if (strcmp(operacao, "3") == 0)
                 {

@@ -125,7 +125,7 @@ int main(int argc, char **argv)
                 exit(6);
             }
             printf("Mensagens cadastradas: %s\n", recvbuf);
-            for (i = 0; i < 10; i++)
+            for (i = 0; i < atoi(recvbuf); i++)
             {
 
                 if (recv(s, usuario, sizeof(usuario), 0) == -1)
