@@ -7,9 +7,13 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
+#include <pthread.h>
+#include <signal.h>
 
 #define MAX_MSG 10
 #define shm_key 1024
+#define SEM_KEY 0x1451
 
 typedef struct
 {
@@ -79,7 +83,7 @@ void le(int ns, database banco[])
     {
         if (banco[i].flagVazio == -99)
         {
-                countMsg++;
+            countMsg++;
         }
     }
 
@@ -222,6 +226,37 @@ int main(int argc, char **argv)
         exit(4);
     }
 
+    ////////////////////////////////// SEMAFORO ////////////////////////////////
+
+    struct sembuf g_sem_op1[1];
+    struct sembuf g_sem_op2[1];
+
+    g_sem_op1[0].sem_num = 0;
+    g_sem_op1[0].sem_op = -1;
+    g_sem_op1[0].sem_flg = 0;
+
+    g_sem_op2[0].sem_num = 0;
+    g_sem_op2[0].sem_op = 1;
+    g_sem_op2[0].sem_flg = 0;
+
+    int g_sem_id;
+
+    if ((g_sem_id = semget(SEM_KEY, 1, IPC_CREAT | 0666)) == -1)
+    {
+        fprintf(stderr, "chamada a semget() falhou, impossivel criar o conjunto de semaforos!");
+        exit(1);
+    }
+
+    printf("id do semaforo:  %i\n", g_sem_id);
+
+    if (semop(g_sem_id, g_sem_op2, 1) == -1)
+    {
+        fprintf(stderr, "chamada semop() falhou, impossivel inicializar o semaforo!");
+        exit(1);
+    }
+
+    ////////////////////////////////// SEMAFORO ////////////////////////////////
+
     printf("Servidor iniciado na porta %d\n\n", port);
 
     do
@@ -250,7 +285,19 @@ int main(int argc, char **argv)
                 }
                 if (strcmp(operacao, "1") == 0)
                 {
+                    if (semop(g_sem_id, g_sem_op1, 1) == -1)
+                    {
+                        fprintf(stderr, "chamada semop() falhou, impossivel fechar o recurso!");
+                        exit(1);
+                    }
+
                     countMsg = escreve(ns, countMsg, banco);
+
+                    if (semop(g_sem_id, g_sem_op2, 1) == -1)
+                    {
+                        fprintf(stderr, "chamada semop() falhou, impossivel liberar o recurso!");
+                        exit(1);
+                    }
                 }
                 else if (strcmp(operacao, "2") == 0)
                 {
@@ -258,33 +305,30 @@ int main(int argc, char **argv)
                 }
                 else if (strcmp(operacao, "3") == 0)
                 {
+                    #ifdef PROTECT
+
+                    if (semop(g_sem_id, g_sem_op1, 1) == -1)
+                    {
+                        fprintf(stderr, "chamada semop() falhou, impossivel fechar o recurso!");
+                        exit(1);
+                    }
+                    #endif
+                    
                     countMsg = exclui(ns, countMsg, banco);
-                }
-
-                /*printf("----------------------------Filho--------------------------------\n");
-                for (int i = 0; i < 10; i++)
-                {
-                    printf("SHM - Usuario: %s | Mensagem: %s. \n", shm[i].usuario, shm[i].msg);
-                    printf("VET - Usuario: %s | Mensagem: %s. \n", banco[i].usuario, banco[i].msg);
-                }
-
-                printf("----------------------------Filho--------------------------------\n");*/
+                    
+                    #ifdef PROTECT
+                    if (semop(g_sem_id, g_sem_op2, 1) == -1)
+                    {
+                        fprintf(stderr, "chamada semop() falhou, impossivel liberar o recurso!");
+                        exit(1);
+                    }
+                    #endif
+                }       
 
             } while (strcmp(operacao, "4") != 0);
+
             close(ns);
         }
-        /*else
-        {
-            printf("-----------------------------PAI-------------------------------\n");
-                for (int i = 0; i < 10; i++)
-                {
-                    printf("SHM - Usuario: %s | Mensagem: %s. \n", *shm[i].usuario, *shm[i].msg);
-                    printf("VET - Usuario: %s | Mensagem: %s. \n", banco[i].usuario, banco[i].msg);
-                }
-
-            printf("-----------------------------PAI-------------------------------\n");
-        }*/
-        
 
     } while (1);
     close(s);
