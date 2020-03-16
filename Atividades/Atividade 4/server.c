@@ -40,10 +40,10 @@ typedef struct
 
 // Variaveis globais para as Threads ---------------------------------------------------------------------------
 int countMsg;
-database *banco[MAX_MSG];
+database banco[MAX_MSG];
 //---------------------------------------------------------------------------------------------------------------
 
-int escreve(int ns, int countMsg, database banco[])
+int escreve(int ns)
 {
     char usuario[19];
     char msg[79];
@@ -58,6 +58,7 @@ int escreve(int ns, int countMsg, database banco[])
     }
     else
     {
+        printf("NS escreve: %d \n", ns);
         if (send(ns, "OK", sizeof("OK"), 0) < 0)
         {
             perror("Send()");
@@ -92,7 +93,7 @@ int escreve(int ns, int countMsg, database banco[])
     return countMsg;
 }
 
-void le(int ns, database banco[])
+void le(int ns)
 {
     char sendbuf[20];
     char usuario[19];
@@ -133,7 +134,7 @@ void le(int ns, database banco[])
     }
 }
 
-int exclui(int ns, int countMsg, database banco[])
+int exclui(int ns)
 {
     char sendbuf[20];
     char usuario[19];
@@ -190,40 +191,40 @@ void thread_func(void *arg)
 {
     ptr_thread_arg thread_arg = (ptr_thread_arg)arg;
 
+    int ns = thread_arg->ns;
+
     int pid_thread = pthread_self();
     printf("Thread Iniciada com Id: %d. \n", pid_thread);
-    printf("Socket: %d \n", thread_arg->ns);
 
     do
     {
-        if (recv(thread_arg->ns, thread_arg->operacao, sizeof(thread_arg->operacao), 0) == -1)
+        if (recv(ns, thread_arg->operacao, sizeof(thread_arg->operacao), 0) == -1)
         {
             perror("Recv()");
             exit(6);
         }
         if (strcmp(thread_arg->operacao, "1") == 0)
         {
-            countMsg = escreve(thread_arg->ns, countMsg, banco);
+            countMsg = escreve(ns);
         }
         else if (strcmp(thread_arg->operacao, "2") == 0)
         {
-            le(thread_arg->ns, banco);
+            le(ns);
         }
         else if (strcmp(thread_arg->operacao, "3") == 0)
         {
-            countMsg = exclui(thread_arg->ns, countMsg, banco);
+            countMsg = exclui(ns);
         }
 
     } while (strcmp(thread_arg->operacao, "4") != 0);
 
-    close(thread_arg->ns);
+    close(ns);
 }
 
 int main(int argc, char **argv)
 {
     int s; /* Socket para aceitar conexoes       */
     int namelen;
-    int countErase = 0;
     int ns_local;
 
     struct sockaddr_in client;
@@ -273,7 +274,6 @@ int main(int argc, char **argv)
     do
     {
         namelen = sizeof(client);
-
         if ((ns_local = accept(s, (struct sockaddr *)&client, (socklen_t *)&namelen)) == -1)
         {
             perror("Accept()");
@@ -284,7 +284,6 @@ int main(int argc, char **argv)
         strcpy(t_arg.operacao, operacao);
 
         thread_create_result = pthread_create(&ptid, NULL, &thread_func, &t_arg);
-
         if (thread_create_result != 0)
         {
             perror("Nao foi possivel criar a Thread!");
