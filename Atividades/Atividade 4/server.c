@@ -43,6 +43,8 @@ int countMsg;
 database banco[MAX_MSG];
 //---------------------------------------------------------------------------------------------------------------
 
+pthread_mutex_t mutex;
+
 int escreve(int ns)
 {
     char usuario[19];
@@ -58,7 +60,6 @@ int escreve(int ns)
     }
     else
     {
-        printf("NS escreve: %d \n", ns);
         if (send(ns, "OK", sizeof("OK"), 0) < 0)
         {
             perror("Send()");
@@ -75,6 +76,7 @@ int escreve(int ns)
             exit(6);
         };
 
+        pthread_mutex_lock(&mutex);
         for (int i = 0; i < MAX_MSG; i++)
         {
             if (banco[i].flagVazio != -99)
@@ -88,6 +90,7 @@ int escreve(int ns)
                 break;
             }
         }
+        pthread_mutex_unlock(&mutex);
     }
 
     return countMsg;
@@ -151,6 +154,7 @@ int exclui(int ns)
 
     countErase = 0;
 
+    pthread_mutex_lock(&mutex);
     for (int i = 0; i < MAX_MSG; i++)
     {
         if (strcmp(usuario, banco[i].usuario) == 0)
@@ -162,6 +166,8 @@ int exclui(int ns)
             countMsg--;
         }
     }
+    pthread_mutex_unlock(&mutex);
+
     sprintf(sendbuf, "%d", countErase);
     if (send(ns, sendbuf, sizeof(sendbuf), 0) < 0)
     {
@@ -237,7 +243,15 @@ int main(int argc, char **argv)
     pthread_t ptid;
     thread_arg t_arg;
 
+    int mutex_init_result;
+
     countMsg = 0;
+
+    mutex_init_result = pthread_mutex_init(&mutex, NULL);
+    if (mutex_init_result != 0) { 
+        printf("\n mutex init has failed\n"); 
+        return 1; 
+    }
 
     if (argc != 2)
     {
@@ -292,6 +306,7 @@ int main(int argc, char **argv)
 
     } while (1);
     close(s);
+    pthread_mutex_destroy(&mutex);
 
     printf("Servidor terminou com sucesso.\n");
     exit(0);
